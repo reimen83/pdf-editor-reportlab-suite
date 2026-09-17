@@ -1,0 +1,10 @@
+venv*/
+build/
+dist/
+__pycache__/
+*.pyc
+*.spec
+*.pdf
+pdf_to_reportlab_gui
+pdf_to_reportlab
+Suno_AI_Descomplicado_script.py
