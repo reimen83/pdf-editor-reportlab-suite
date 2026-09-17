@@ -7,6 +7,27 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
 from reportlab.pdfgen import canvas
 
+def clean_extracted_text(text):
+    """Sanitiza o texto extraído corrigindo códigos CID, marcadores e entidades XML"""
+    if not text:
+        return ""
+    
+    # Substitui padrões CID quebrados (ex: (cid:127)) por marcadores de lista limpos
+    text = re.sub(r'\(cid:\d+\)', '•', text)
+    
+    # Substituições para caracteres especiais comuns que causam falhas de renderização
+    replacements = {
+        '\xa0': ' ',
+        '\u2022': '•',
+        '■': '■',
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+        
+    # Escapa caracteres especiais exigidos pelo ReportLab em Paragraphs
+    text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    return text.strip()
+
 def extrair_estilos_de_pdf(pdf_path):
     """Extrai paleta de cores e propriedades visuais do PDF de Referência (Design)"""
     estilos_extraidos = {
@@ -38,7 +59,7 @@ def extrair_estilos_de_pdf(pdf_path):
     return estilos_extraidos
 
 def extrair_texto_estruturado(pdf_path):
-    """Extrai o texto do PDF de Conteúdo e infere a hierarquia (H1, H2, Corpo) pelo tamanho da fonte"""
+    """Extrai o texto do PDF de Conteúdo, limpa caracteres e infere a hierarquia (H1, H2, Corpo)"""
     blocos_texto = []
     
     with pdfplumber.open(pdf_path) as pdf:
@@ -61,7 +82,10 @@ def extrair_texto_estruturado(pdf_path):
             
             for top in sorted(linhas.keys()):
                 linha_words = sorted(linhas[top], key=lambda x: x['x0'])
-                texto_linha = " ".join([w['text'] for w in linha_words]).strip()
+                texto_linha = " ".join([w['text'] for w in linha_words])
+                
+                # Aplica a higienização do texto extraído
+                texto_linha = clean_extracted_text(texto_linha)
                 if not texto_linha:
                     continue
                 
@@ -128,16 +152,14 @@ def clonar_layout_e_aplicar(pdf_design, pdf_conteudo, pdf_saida):
     story = []
     
     for tipo, texto in blocos_texto:
-        texto_clean = texto.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-        
         if tipo == 'H1':
-            story.append(Paragraph(texto_clean, h1_style))
+            story.append(Paragraph(texto, h1_style))
             story.append(Spacer(1, 8))
-        elif tipo == 'H2' or tipo == 'H3':
-            story.append(Paragraph(texto_clean, h2_style))
+        elif tipo in ['H2', 'H3']:
+            story.append(Paragraph(texto, h2_style))
             story.append(Spacer(1, 6))
         else:
-            story.append(Paragraph(texto_clean, body_style))
+            story.append(Paragraph(texto, body_style))
             story.append(Spacer(1, 4))
             
     doc.build(story)
