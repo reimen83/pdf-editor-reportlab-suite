@@ -28,4 +28,4 @@ pip install reportlab pdfplumber
 python3 pdf_to_reportlab_gui.py
 
 ---
-*Desenvolvido por Reinaldo.*
+*Desenvolvido por Reinaldo H Neto.*
